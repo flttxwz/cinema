@@ -17,15 +17,21 @@ class MyPlugin(Star):
         message_str = event.message_str # 用户发的纯文本消息字符串
         message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
         logger.info(message_str)
+        message = ""
+        if message_str.startswith('helloworld'):
+            index = message_str.find("helloworld")
+            if index != -1:
+                message = message_str[index + len("helloworld"):]
         logger.info(message_chain)
+        logger.info(message)
         # message不为空就搜索
-        if message_str != "":
+        if message != "":
             plugin = CinemaPlugin()
             # 定义测试消息
             # 调用 process_message 方法处理消息
             # 用于存储去重后的结果
             unique_data = []
-            result = plugin.process_message(message_str)
+            result = plugin.process_message(message)
             if result:
                 # 若有结果，打印返回内容
                 print("返回内容:", result)
@@ -52,50 +58,44 @@ class MyPlugin(Star):
 
 class MessageHandler:
     def handle_message(self, message):
-        # 检查消息是否以 "找" 开头
-        if message.startswith("helloworld"):
-            # 提取关键词，去掉 "找" 字
-            keyword = message[1:]
+        try:
+            # 调用 get_tokens 方法获取令牌
+            tokens = self.get_tokens()
+        except requests.RequestException as e:
+            # 若获取令牌时出现请求异常，返回错误信息
+            return f"获取 token 出现错误: {e}"
+        # 定义需要请求的 URL 列表
+        urls = [
+            "http://y.kkkob.com/v/api/getXiaoyu",
+            "http://y.kkkob.com/v/api/search",
+            "http://y.kkkob.com/v/api/getDJ",
+            "http://y.kkkob.com/v/api/getJuzi",
+            "http://uukk6.cn/v/api/getTop",
+            "http://uukk6.cn/v/api/getDyfx",
+            "http://uukk6.cn/v/api/getTTZJB",
+            "http://uukk6.cn/v/api/getGirls",
+            # "http://uukk6.cn/v/api/getXiaoy",
+            # "http://uukk6.cn/v/api/getJuzi",
+            "http://uukk6.cn/v/api/getGGang"
+        ]
+        # 用于存储所有请求的响应结果
+        all_responses = []
+        for url in urls:
+            token = tokens["y.kkkob.com"] if "y.kkkob.com" in url else tokens["uukk6.cn"]
             try:
-                # 调用 get_tokens 方法获取令牌
-                tokens = self.get_tokens()
-            except requests.RequestException as e:
-                # 若获取令牌时出现请求异常，返回错误信息
-                return f"获取 token 出现错误: {e}"
-            # 定义需要请求的 URL 列表
-            urls = [
-                "http://y.kkkob.com/v/api/getXiaoyu",
-                "http://y.kkkob.com/v/api/search",
-                "http://y.kkkob.com/v/api/getDJ",
-                "http://y.kkkob.com/v/api/getJuzi",
-                "http://uukk6.cn/v/api/getTop",
-                "http://uukk6.cn/v/api/getDyfx",
-                "http://uukk6.cn/v/api/getTTZJB",
-                "http://uukk6.cn/v/api/getGirls",
-                # "http://uukk6.cn/v/api/getXiaoy",
-                # "http://uukk6.cn/v/api/getJuzi",
-                "http://uukk6.cn/v/api/getGGang"
-            ]
-            # 用于存储所有请求的响应结果
-            all_responses = []
-            for url in urls:
-                token = tokens["y.kkkob.com"] if "y.kkkob.com" in url else tokens["uukk6.cn"]
+                response = self.send_request(url, message, token)
                 try:
-                    response = self.send_request(url, keyword, token)
-                    try:
-                        # 尝试将响应内容解析为 JSON
-                        data = json.loads(response)
-                        if len(data["list"]) != 0:
-                            for item in data["list"]:
-                                all_responses.append(item)
-                    except json.JSONDecodeError:
-                        # 若解析失败，将原始响应添加到 all_responses
-                        all_responses.append(response)
-                except requests.RequestException as e:
-                    all_responses.append(f"请求 {url} 出现错误: {e}")
-            return all_responses
-        # 若消息不以 "找" 开头，返回 None
-        return None
+                    # 尝试将响应内容解析为 JSON
+                    data = json.loads(response)
+                    if len(data["list"]) != 0:
+                        for item in data["list"]:
+                            all_responses.append(item)
+                except json.JSONDecodeError:
+                    # 若解析失败，将原始响应添加到 all_responses
+                    all_responses.append(response)
+            except requests.RequestException as e:
+                all_responses.append(f"请求 {url} 出现错误: {e}")
+        return all_responses
 
     def get_tokens(self):
         # 定义不同域名对应的获取令牌的 URL
