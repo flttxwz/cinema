@@ -59,7 +59,7 @@ class MyPlugin(Star):
 class MessageHandler:
     def handle_message(self, message):
         # 检查消息是否以 "找" 开头
-        if message.startswith("找"):
+        if message.startswith("helloworld"):
             # 提取关键词，去掉 "找" 字
             keyword = message[1:]
             try:
