@@ -1,20 +1,54 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+import random
+import re
+
+from astrbot.api.all import *
+from astrbot.api.event import filter
+from astrbot.core.provider.entites import LLMResponse
 import requests
 import json
 
-@register("搜电影", "YourName", "一个简单的 搜电影 插件", "1.0.0")
-class MyPlugin(Star):
-    def __init__(self, context: Context):
+@register("QNA", "buding", "一个用于自动回答群聊问题的插件", "1.1.5", "https://github.com/zouyonghe/astrbot_plugin_qna")
+class QNA(Star):
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-    
-    # 注册指令的装饰器。指令名为 "搜"。注册成功后，发送 `搜` 就会触发这个指令，并回复 所需要的d`
-    @filter.command("搜")
-    async def helloworld(self, event: AstrMessageEvent):
+        self.config = config
+
+        # 读取关键词列表
+        question_keyword_list = self.config.get("question_keyword_list", "").split(";")
+        self.question_pattern = None  # 默认值
+
+        if question_keyword_list:
+            self.question_pattern = r"(?i)(" + "|".join(map(re.escape, question_keyword_list)) + r")"
+
+    def _in_qna_group_list(self, group_id: str) -> bool:
+        qna_group_list = self.config.get("qna_group_list", [])
+        return group_id in qna_group_list
+
+    def _add_to_list(self, group_id: str):
+        qna_group_list = self.config.get("qna_group_list", [])
+        if not group_id or group_id == "":
+            return
+        if group_id in qna_group_list:
+            return
+        qna_group_list.append(group_id)
+        self.config["qna_group_list"] = qna_group_list
+        self.config.save_config()
+
+    def _remove_from_list(self, group_id: str):
+        qna_group_list = self.config.get("qna_group_list", [])
+        if not group_id or group_id == "":
+            return
+        if group_id not in qna_group_list:
+            return
+        qna_group_list.remove(group_id)
+        self.config["qna_group_list"] = qna_group_list
+        self.config.save_config()
+
+    async def search_cinema(self, event: AstrMessageEvent, messagestr: str):
+
         '''这是一个 搜 指令''' # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
         user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
+        message_str = messagestr # 用户发的纯文本消息字符串
         message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
         logger.info(message_str)
         message = ""
@@ -52,8 +86,146 @@ class MyPlugin(Star):
                 result_str += f"{question}\n{answer}\n\n"
             yield event.plain_result(f"Hello, {user_name}, 给您找到的电影资源 {result_str}!")  # 发送一条纯文本消息
 
-    async def terminate(self):
-        '''可选择实现 terminate 函数，当插件被卸载/停用时会调用。'''
+    @event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def auto_answer(self, event: AstrMessageEvent):
+        """自动回答群消息中的问题"""
+        # 判定是否启用自动回复
+        if not self.config.get("enable_qna", False):
+            return
+
+        if event.is_private_chat():
+            return
+
+        # # 判定不是主动唤醒
+        # if event.is_at_or_wake_command:
+        #     return
+
+        # 判定不是自己的消息
+        if event.get_sender_id() is event.get_self_id():
+            return
+
+        # 如果没有配置关键词或启用群组列表，直接返回
+        if not self._in_qna_group_list(event.get_group_id()) or not self.question_pattern:
+            return
+
+        # 匹配提问关键词
+        if not re.search(self.question_pattern, event.message_str):
+            return
+
+        # # 检测字数、LLM概率调用
+        # if len(event.message_str) > 50 or random.random() > float(self.config.get("llm_answer_probability", 0.1)):
+        #     return
+
+        async for resp in self.search_cinema(event, event.message_str):
+            yield resp
+
+
+    @command_group("qna")
+    def qna(self):
+        pass
+
+    @qna.command("enable")
+    async def enable_qna(self, event: AstrMessageEvent):
+        """开启自动解答"""
+        try:
+            if self.config.get("enable_qna", False):
+                yield event.plain_result("✅ 自动解答已经是开启状态了")
+                return
+
+            self.config["enable_qna"] = True
+            self.config.save_config()
+            yield event.plain_result("📢 自动解答已开启")
+        except Exception as e:
+            logger.error(f"自动解答开启失败: {e}")
+            yield event.plain_result("❌ 自动解答开启失败，请检查控制台输出")
+
+    @qna.command("disable")
+    async def disable_qna(self, event: AstrMessageEvent):
+        """关闭自动解答"""
+        try:
+            if not self.config.get("enable_qna", False):
+                yield event.plain_result("✅ 自动解答已经是关闭状态")
+                return
+
+            self.config["enable_qna"] = False
+            self.config.save_config()
+            yield event.plain_result("📢 自动解答已关闭")
+        except Exception as e:
+            logger.error(f"自动解答关闭失败: {e}")
+            yield event.plain_result("❌ 自动解答关闭失败，请检查控制台输出")
+
+    @qna.command("id")
+    async def show_group_id(self, event: AstrMessageEvent):
+        if event.is_private_chat():
+            yield event.plain_result("检测到私聊，无群组ID。")
+            return
+        yield event.plain_result(event.get_group_id())
+
+    @qna.group("group")
+    def group(self):
+        pass
+
+    @group.command("list")
+    async def show_qna_list(self, event: AstrMessageEvent):
+        """获取启用解答的群号"""
+        qna_group_list = self.config.get("qna_group_list", [])
+        if not qna_group_list:
+            yield event.plain_result("当前白名单列表为空")
+            return
+
+        # 格式化输出群号列表
+        group_list_str = "\n".join(f"- {group}" for group in sorted(qna_group_list))
+        result = f"当前启用 QNA 群组列表:\n{group_list_str}"
+        yield event.plain_result(result)
+
+    @group.command("add")
+    async def add_to_qna_list(self, event: AstrMessageEvent, group_id: str):
+        """添加群组到 QNA 列表"""
+        try:
+            # 检查群组ID格式是否正确，如果不合法，直接返回
+            if not group_id.strip().isdigit():
+                yield event.plain_result("⚠️ 群组ID必须为纯数字")
+                return
+
+            group_id = group_id.strip()
+
+            # 添加到白名单
+            self._add_to_list(group_id)
+            yield event.plain_result(f"✅ 群组 {group_id} 已成功添加到自动解答白名单")
+        except Exception as e:
+            # 捕获并记录日志，同时通知用户
+            logger.error(f"❌ 添加群组 {group_id} 到白名单失败，错误信息: {e}")
+            yield event.plain_result("❌ 添加到白名单失败，请查看控制台日志")
+
+    @group.command("del")
+    async def remove_from_qna_list(self, event: AstrMessageEvent, group_id: str):
+        """从 QNA 列表移除群组"""
+        try:
+            # 检查群组ID格式是否正确
+            if not group_id.strip().isdigit():
+                yield event.plain_result("⚠️ 群组ID必须为纯数字")
+                return
+
+            group_id = group_id.strip()
+
+            # 移除群组
+            self._remove_from_list(group_id)
+            yield event.plain_result(f"✅ 群组 {group_id} 已成功从自动解答白名单中移除")
+        except Exception as e:
+            # 捕获其他异常，记录日志并告知用户
+            logger.error(f"❌ 移除群组 {group_id} 时发生错误：{e}")
+            yield event.plain_result("❌ 从白名单中移除失败，请查看控制台日志")
+
+    @filter.on_llm_response()
+    async def remove_null_message(self, event: AstrMessageEvent, resp: LLMResponse):
+        """
+        如果结果为 `NULL` 则删除消息
+        """
+        if resp.role == 'assistant':
+            # 检测是否为NULL
+            if resp.completion_text.strip().upper() == "NULL":
+                logger.debug(f"Found 'NULL' in LLM response: {resp.completion_text}")
+                event.stop_event()
 
 
 class MessageHandler:
