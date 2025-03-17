@@ -43,13 +43,14 @@ class MyPlugin(Star):
                         # 如果 answer 未出现过，则添加到 unique_data 并记录
                         unique_data.append(item)
                         seen_answers.add(answer)
+            logger.info(unique_data)
             # 将结果拼接成字符串
             result_str = ""
             for item1 in unique_data:
                 question = item1.get('question')
                 answer = item1.get('answer')
                 result_str += f"{question}\n{answer}\n\n"
-            yield event.plain_result(f"Hello, {user_name}, 给您找到的电影资源 {unique_data}!")  # 发送一条纯文本消息
+            yield event.plain_result(f"Hello, {user_name}, 给您找到的电影资源 {result_str}!")  # 发送一条纯文本消息
 
     async def terminate(self):
         '''可选择实现 terminate 函数，当插件被卸载/停用时会调用。'''
