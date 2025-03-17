@@ -17,21 +17,15 @@ class MyPlugin(Star):
         message_str = event.message_str # 用户发的纯文本消息字符串
         message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
         logger.info(message_str)
-        message = ""
-        if message_str.startswith('helloworld'):
-            index = message_str.find("helloworld")
-            if index != -1:
-                message = message_str[index + len("helloworld"):]
         logger.info(message_chain)
-        logger.info(message)
         # message不为空就搜索
-        if message != "":
+        if message_str != "":
             plugin = CinemaPlugin()
             # 定义测试消息
             # 调用 process_message 方法处理消息
             # 用于存储去重后的结果
             unique_data = []
-            result = plugin.process_message(message)
+            result = plugin.process_message(message_str)
             if result:
                 # 若有结果，打印返回内容
                 print("返回内容:", result)
