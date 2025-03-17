@@ -80,7 +80,9 @@ class QNA(Star):
             logger.info(unique_data)
             # 将结果拼接成字符串
             result_str = ""
-            for item1 in unique_data:
+            for index, item1 in enumerate(unique_data):
+                if index == 9:
+                    break
                 question = item1.get('question')
                 answer = item1.get('answer')
                 result_str += f"{question}\n{answer}\n\n"
@@ -264,9 +266,11 @@ class MessageHandler:
                             all_responses.append(item)
                 except json.JSONDecodeError:
                     # 若解析失败，将原始响应添加到 all_responses
-                    all_responses.append(response)
+                    # all_responses.append(response)
+                    continue
             except requests.RequestException as e:
-                all_responses.append(f"请求 {url} 出现错误: {e}")
+                # all_responses.append(f"请求 {url} 出现错误: {e}")
+                continue
         return all_responses
 
     def get_tokens(self):
