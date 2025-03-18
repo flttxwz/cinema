@@ -88,7 +88,15 @@ class QNA(Star):
                 answer = item1.get('answer')
                 result_str += f"{question}\n{answer}\n\n"
             # yield event.plain_result(f"[AT{user_id}] {user_name}, 搜索结果如下\n {result_str}!")  # 发送一条纯文本消息
-            yield event.chain_result(chain=MessageChain([At(user_id),Plain(user_name),Plain("搜索结果如下\n"),Plain(result_str)]))
+            logger.info("用户id",user_id)
+            yield event.chain_result(
+                chain=MessageChain([
+                    At(user_id),  # @ 用户
+                    Plain(user_name),  # 显示用户名称
+                    Plain("搜索结果如下\n"),  # 显示提示文本
+                    Plain(result_str)  # 显示搜索结果字符串
+                ])
+            )
 
     @event_message_type(EventMessageType.GROUP_MESSAGE)
     async def auto_answer(self, event: AstrMessageEvent):
