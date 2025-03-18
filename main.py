@@ -91,7 +91,7 @@ class QNA(Star):
             # yield event.plain_result(f"[AT{user_id}] {user_name}, 搜索结果如下\n {result_str}!")  # 发送一条纯文本消息
             logger.info(user_id)
             yield event.chain_result(
-                chain=[ Comp.At(vx=user_id),Comp.Plain(text={user_name}+ "搜索结果如下\n"+{result_str})]
+                chain=[Comp.At(user_id),Comp.Plain(text={user_name}+ "搜索结果如下\n"+{result_str})]
             )
 
     @event_message_type(EventMessageType.GROUP_MESSAGE)
