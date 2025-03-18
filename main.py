@@ -92,7 +92,8 @@ class QNA(Star):
             logger.info(user_id)
             at_component = At(qq=user_id)
             # 创建其他消息组件
-            plain_text = Plain(text={user_name} + "搜索结果如下\n" + {result_str})
+            text = user_name + "搜索结果如下\n" + result_str
+            plain_text = Plain(text=text)
             # 构建消息链
             message_chain = MessageChain([at_component, plain_text])
             # 创建消息事件结果
