@@ -48,6 +48,7 @@ class QNA(Star):
 
         '''这是一个 搜 指令''' # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
         user_name = event.get_sender_name()
+        user_id = event.get_sender_id() # 用户的id
         message_str = messagestr # 用户发的纯文本消息字符串
         message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
         logger.info(message_str)
@@ -86,7 +87,7 @@ class QNA(Star):
                 question = item1.get('question')
                 answer = item1.get('answer')
                 result_str += f"{question}\n{answer}\n\n"
-            yield event.plain_result(f"Hello, {user_name}, 给您找到的电影资源 {result_str}!")  # 发送一条纯文本消息
+            yield event.plain_result(f"[AT{user_id}] {user_name}, 搜索结果如下\n {result_str}!")  # 发送一条纯文本消息
 
     @event_message_type(EventMessageType.GROUP_MESSAGE)
     async def auto_answer(self, event: AstrMessageEvent):
