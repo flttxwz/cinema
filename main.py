@@ -4,6 +4,7 @@ import re
 from astrbot.api.all import *
 from astrbot.api.event import filter
 from astrbot.core.provider.entites import LLMResponse
+import astrbot.api.message_components as Comp
 import requests
 import json
 
@@ -90,12 +91,7 @@ class QNA(Star):
             # yield event.plain_result(f"[AT{user_id}] {user_name}, 搜索结果如下\n {result_str}!")  # 发送一条纯文本消息
             logger.info("用户id",user_id)
             yield event.chain_result(
-                chain=MessageChain([
-                    At(user_id),  # @ 用户
-                    Plain(user_name),  # 显示用户名称
-                    Plain("搜索结果如下\n"),  # 显示提示文本
-                    Plain(result_str)  # 显示搜索结果字符串
-                ])
+                chain=[ Comp.At(vx=user_id),Comp.Plain(text={user_name}+ "搜索结果如下\n"+{result_str})]
             )
 
     @event_message_type(EventMessageType.GROUP_MESSAGE)
